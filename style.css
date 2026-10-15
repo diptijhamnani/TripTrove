@@ -1615,5 +1615,130 @@ select:focus {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+     
+/* Premium TripTrove additions */
+.extras {
+  background: #f5ece2;
+}
+
+.extras .section-heading p {
+  color: #8b6b53;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.extras .section-heading h2 {
+  font-size: clamp(26px, 4vw, 38px);
+}
+
+.extras-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  max-width: 1100px;
+  margin: auto;
+}
+
+.extra-card {
+  background: #fffdf9;
+  border: 1px solid #e8d8c8;
+  border-radius: 22px;
+  padding: 24px;
+  box-shadow: 0 8px 25px #59402b0d;
+  animation: riseIn .7s ease both;
+  transition: transform .3s, box-shadow .3s;
+}
+
+.extra-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px #59402b1c;
+}
+
+.extra-card h3 {
+  margin-bottom: 16px;
+  color: #503a2b;
+}
+
+.extra-card input,
+.extra-card textarea {
+  display: block;
+  width: 100%;
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid #e4d2c0;
+  border-radius: 11px;
+  background: #faf5ef;
+  font: inherit;
+}
+
+.extra-card textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.extra-card button {
+  transition: transform .2s, background .2s;
+}
+
+.extra-card button:hover {
+  background: #4b3427;
+  transform: scale(1.03);
+}
+
+.extra-card button:active {
+  transform: scale(.97);
+}
+
+#notesList > div,
+#remindersList > div,
+#savedTripsList > div {
+  background: #f5ece2;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.logo {
+  transition: transform .3s;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+}
+
+button {
+  transition: transform .2s, background .2s;
+}
+
+@media (max-width: 700px) {
+  .extras-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .extra-card {
+    padding: 18px;
+  }
+
+  .extras {
+    padding-left: 5%;
+    padding-right: 5%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
   }
 }
