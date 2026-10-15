@@ -543,5 +543,49 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="script.js"></script>
+  
+<!-- TripTrove: Notes, Reminders & Saved Trips -->
+<section class="extras section-padding" id="trip-tools">
+  <div class="section-heading">
+    <p>Your travel companion</p>
+    <h2>Make every trip memorable ✨</h2>
+  </div>
+
+  <div class="extras-grid">
+    <div class="extra-card">
+      <h3>📝 Travel Notes</h3>
+      <input id="noteTitle" placeholder="Note title">
+      <textarea id="noteText" placeholder="Hotel details, places to visit..."></textarea>
+      <button onclick="saveNote()">Save Note</button>
+      <div id="notesList"></div>
+    </div>
+
+    <div class="extra-card">
+      <h3>🔔 Trip Reminder</h3>
+      <input id="reminderText" placeholder="e.g. Book train tickets">
+      <input id="reminderDate" type="datetime-local">
+      <button onclick="saveReminder()">Set Reminder</button>
+      <div id="remindersList"></div>
+    </div>
+
+    <div class="extra-card">
+      <h3>💰 Budget Calculator</h3>
+      <input id="tripBudget" type="number" placeholder="Total budget ₹">
+      <input id="tripSpent" type="number" placeholder="Amount spent ₹">
+      <button onclick="calculateBudget()">Calculate</button>
+      <p id="budgetResult">Your budget summary appears here.</p>
+    </div>
+
+    <div class="extra-card">
+      <h3>✈️ Save Your Trip</h3>
+      <input id="saveTripName" placeholder="Trip name">
+      <input id="saveTripPlace" placeholder="Destination">
+      <input id="saveTripDate" type="date">
+      <button onclick="saveTrip()">Save Trip</button>
+      <div id="savedTripsList"></div>
+    </div>
+  </div>
+</section>
+
 </body>
 </html>
