@@ -243,3 +243,126 @@ document.querySelectorAll('a[href^="#"]').forEach(link => {
 displayTrips();
 displayPacking();
 displayItinerary();
+
+// TripTrove: Save data in this browser
+const getData = key =>
+  JSON.parse(localStorage.getItem("tripTrove_" + key) || "[]");
+
+const putData = (key, data) =>
+  localStorage.setItem("tripTrove_" + key, JSON.stringify(data));
+
+function showItems(id, items, format) {
+  const box = document.getElementById(id);
+  box.replaceChildren();
+
+  items.forEach((item, index) => {
+    const card = document.createElement("div");
+    const text = document.createElement("p");
+    text.textContent = format(item);
+    const remove = document.createElement("button");
+    remove.textContent = "Delete";
+
+    remove.onclick = () => {
+      items.splice(index, 1);
+      putData(id, items);
+      showItems(id, items, format);
+    };
+
+    card.append(text, remove);
+    box.append(card);
+  });
+}
+
+function saveNote() {
+  const title = document.getElementById("noteTitle").value.trim();
+  const text = document.getElementById("noteText").value.trim();
+
+  if (!title || !text) return alert("Enter a title and note.");
+
+  const notes = getData("notes");
+  notes.push({ title, text });
+  putData("notes", notes);
+  showItems("notesList", notes, n => n.title + ": " + n.text);
+
+  document.getElementById("noteTitle").value = "";
+  document.getElementById("noteText").value = "";
+}
+
+function saveReminder() {
+  const text = document.getElementById("reminderText").value.trim();
+  const date = document.getElementById("reminderDate").value;
+
+  if (!text || !date) return alert("Enter a reminder and date.");
+
+  const reminders = getData("reminders");
+  reminders.push({ text, date, notified: false });
+  putData("reminders", reminders);
+  showItems("remindersList", reminders,
+    r => r.text + " — " + new Date(r.date).toLocaleString());
+
+  document.getElementById("reminderText").value = "";
+}
+
+function saveTrip() {
+  const name = document.getElementById("saveTripName").value.trim();
+  const place = document.getElementById("saveTripPlace").value.trim();
+  const date = document.getElementById("saveTripDate").value;
+
+  if (!name || !place || !date)
+    return alert("Enter the trip name, destination and date.");
+
+  const trips = getData("savedTripsList");
+  trips.push({ name, place, date });
+  putData("savedTripsList", trips);
+  showItems("savedTripsList", trips,
+    t => t.name + " — " + t.place + " — " + t.date);
+
+  document.getElementById("saveTripName").value = "";
+  document.getElementById("saveTripPlace").value = "";
+  document.getElementById("saveTripDate").value = "";
+}
+
+function calculateBudget() {
+  const budget = Number(document.getElementById("tripBudget").value);
+  const spent = Number(document.getElementById("tripSpent").value);
+  const result = document.getElementById("budgetResult");
+
+  if (budget <= 0 || spent < 0 ||
+      document.getElementById("tripBudget").value === "" ||
+      document.getElementById("tripSpent").value === "") {
+    result.textContent = "Enter a valid budget and amount spent.";
+    return;
+  }
+
+  const remaining = budget - spent;
+  result.textContent = remaining >= 0
+    ? `Remaining: ₹${remaining.toLocaleString("en-IN")}`
+    : `Over budget by ₹${Math.abs(remaining).toLocaleString("en-IN")}`;
+}
+
+// Restore saved items after refreshing
+showItems("notesList", getData("notes"), n => n.title + ": " + n.text);
+showItems("remindersList", getData("reminders"),
+  r => r.text + " — " + new Date(r.date).toLocaleString());
+showItems("savedTripsList", getData("savedTripsList"),
+  t => t.name + " — " + t.place + " — " + t.date);
+
+// Reminder alerts while the website is open
+function checkTripReminders() {
+  const reminders = getData("reminders");
+  let changed = false;
+
+  reminders.forEach(r => {
+    if (!r.notified && new Date(r.date).getTime() <= Date.now()) {
+      alert("Trip reminder: " + r.text);
+      r.notified = true;
+      changed = true;
+    }
+  });
+
+  if (changed) putData("reminders", reminders);
+}
+
+checkTripReminders();
+setInterval(checkTripReminders, 30000);
+
