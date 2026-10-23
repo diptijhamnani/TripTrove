@@ -18,6 +18,20 @@
 </head>
 
 <body>
+  
+<section class="world-explorer" id="worldExplorer">
+  <p>EXPLORE THE WORLD</p>
+  <h2>Where to next?</h2>
+  <input id="placeName" placeholder="Enter a city or destination">
+  <button id="addPlace">+ Add destination</button>
+  <div id="worldMap" style="height:400px;border-radius:16px;margin-top:20px"></div>
+  <ul id="destinationList"></ul>
+</section>
+
+<link rel="stylesheet"
+ href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 
   <!-- Navigation -->
   <header class="navbar">
@@ -645,20 +659,7 @@
         <h3>Manali, India</h3>
         <a href="https://www.google.com/maps/search/?api=1&query=Manali+India" target="_blank" rel="noopener">Explore place ↗</a>
       </div>
-    </article>
-
-    <article class="location-card">
-      <img src="https://images.unsplash.com/photo-1599661046827-dacff0c0f09a?auto=format&fit=crop&w=800&q=85" alt="Jaipur heritage architecture">
-      <div class="location-info">
-        <span>03 / HERITAGE</span>
-        <h3>Jaipur, India</h3>
-        <a href="https://www.google.com/maps/search/?api=1&query=Jaipur+India" target="_blank" rel="noopener">Explore place ↗</a>
-      </div>
-    </article>
-  </div>
-</section>
-
-      </div>
+     </div>
     </article>
   </div>
 </section>
