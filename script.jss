@@ -428,6 +428,138 @@ document.addEventListener("DOMContentLoaded", () => {
       if (target) {
         event.preventDefault();
         target.scrollIntoView({ behavior: "smooth" });
+
+document.addEventListener("DOMContentLoaded", () => {
+  // WORLD MAP
+  const map = L.map("worldMap").setView([20, 0], 2);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(map);
+
+  const places = [];
+  const list = document.getElementById("destinationList");
+
+  function addDestination(name, lat, lng) {
+    if (places.some(p => p.name === name)) return;
+
+    places.push({ name, lat, lng });
+
+    L.marker([lat, lng]).addTo(map)
+      .bindPopup(name);
+
+    const item = document.createElement("li");
+    item.textContent = name;
+    list.appendChild(item);
+  }
+
+  // Click the map to add a destination
+  map.on("click", e => {
+    const name = prompt("Name this location:");
+    if (name && name.trim()) {
+      addDestination(name.trim(), e.latlng.lat, e.latlng.lng);
+    }
+  });
+
+  // Search any place using OpenStreetMap
+  document.getElementById("addPlace").onclick = async () => {
+    const input = document.getElementById("placeName");
+    const name = input.value.trim();
+    if (!name) return;
+
+    try {
+      const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q="
+        + encodeURIComponent(name);
+
+      const response = await fetch(url);
+      const results = await response.json();
+
+      if (!results.length) {
+        alert("Location not found. Try another place.");
+        return;
+      }
+
+      const p = results[0];
+      addDestination(name, Number(p.lat), Number(p.lon));
+      map.setView([p.lat, p.lon], 7);
+      input.value = "";
+    } catch {
+      alert("Could not load location. Please try again.");
+    }
+  };
+
+  // UPLOAD AND PREVIEW PHOTOS
+  const photoInput = document.getElementById("tripPhotos");
+  const gallery = document.getElementById("photoGallery");
+  let photos = [];
+
+  photoInput.onchange = () => {
+    photos = [];
+    gallery.replaceChildren();
+
+    [...photoInput.files].forEach(file => {
+      if (!file.type.startsWith("image/")) return;
+
+      const url = URL.createObjectURL(file);
+      photos.push(file);
+
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = file.name;
+      img.style.cssText =
+        "width:110px;height:100px;object-fit:cover;border-radius:12px;margin:6px";
+
+      gallery.appendChild(img);
+    });
+  };
+
+  // SAVE TRIP DETAILS
+  function showTrips() {
+    const saved = JSON.parse(
+      localStorage.getItem("tripTroveSaved") || "[]"
+    );
+
+    const output = document.getElementById("savedTrips");
+    output.replaceChildren();
+
+    saved.forEach(trip => {
+      const card = document.createElement("div");
+      const title = document.createElement("h3");
+      const details = document.createElement("p");
+
+      title.textContent = trip.title;
+      details.textContent =
+        `${trip.date || "No date"} · Budget ₹${trip.budget || 0} · ${trip.places.join(", ")}`;
+
+      card.append(title, details);
+      output.appendChild(card);
+    });
+  }
+
+  document.getElementById("saveMyTrip").onclick = () => {
+    const trip = {
+      title: document.getElementById("tripTitle").value.trim() || "My Trip",
+      date: document.getElementById("tripDate").value,
+      budget: document.getElementById("tripBudget").value,
+      notes: document.getElementById("tripNotes").value,
+      places: places.map(p => p.name),
+      photoNames: photos.map(p => p.name)
+    };
+
+    const saved = JSON.parse(
+      localStorage.getItem("tripTroveSaved") || "[]"
+    );
+
+    saved.push(trip);
+    localStorage.setItem("tripTroveSaved", JSON.stringify(saved));
+
+    alert("Trip details saved successfully!");
+    showTrips();
+  };
+
+  showTrips();
+});
+
       }
     });
   });
