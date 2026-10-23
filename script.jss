@@ -366,3 +366,71 @@ function checkTripReminders() {
 checkTripReminders();
 setInterval(checkTripReminders, 30000);
 
+document.addEventListener("DOMContentLoaded", () => {
+  // 1. Save trips in browser
+  const saveButtons = document.querySelectorAll(
+    "#saveTrip, .save-trip"
+  );
+
+  saveButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      const trip = {
+        destination:
+          document.querySelector("#destination")?.value || "My Trip",
+        date: document.querySelector("#travelDate")?.value || "",
+        budget:
+          document.querySelector("#budget")?.value || "0",
+        savedAt: new Date().toLocaleDateString()
+      };
+
+      const trips = JSON.parse(
+        localStorage.getItem("tripTroveTrips") || "[]"
+      );
+
+      trips.push(trip);
+      localStorage.setItem(
+        "tripTroveTrips",
+        JSON.stringify(trips)
+      );
+
+      alert("Your trip has been saved! ✈️");
+    });
+  });
+
+  // 2. Destination card animation
+  document.querySelectorAll(".location-card").forEach(card => {
+    card.addEventListener("click", event => {
+      if (event.target.closest("a")) return;
+      card.classList.toggle("selected");
+    });
+  });
+
+  // 3. Destination search
+  const search = document.querySelector("#destinationSearch");
+
+  if (search) {
+    search.addEventListener("input", () => {
+      const query = search.value.toLowerCase();
+
+      document.querySelectorAll(".location-card").forEach(card => {
+        card.style.display = card.textContent
+          .toLowerCase()
+          .includes(query) ? "" : "none";
+      });
+    });
+  }
+
+  // 4. Smooth scrolling for section links
+  document.querySelectorAll('a[href^="#"]').forEach(link => {
+    link.addEventListener("click", event => {
+      const target = document.querySelector(link.getAttribute("href"));
+
+      if (target) {
+        event.preventDefault();
+        target.scrollIntoView({ behavior: "smooth" });
+      }
+    });
+  });
+});
+
+
