@@ -1,245 +1,902 @@
-const tripForm = document.getElementById("tripForm");
-const tripList = document.getElementById("tripList");
-const budgetForm = document.getElementById("budgetForm");
-const packingForm = document.getElementById("packingForm");
+/* =========================================
+   TRIPTROVE - MAIN JAVASCRIPT
+========================================= */
 
-// Load saved data
-let trips = JSON.parse(localStorage.getItem("tripTroveTrips")) || [];
-let packingItems = JSON.parse(localStorage.getItem("tripTrovePacking")) || [];
+document.addEventListener("DOMContentLoaded", function () {
+    const $ = (id) => document.getElementById(id);
 
-function saveTrips() {
-    localStorage.setItem("tripTroveTrips", JSON.stringify(trips));
-}
-
-function savePacking() {
-    localStorage.setItem("tripTrovePacking", JSON.stringify(packingItems));
-}
-
-// Show a message
-function showMessage(message) {
-    alert(message);
-}
-
-// Create and display trips
-function displayTrips() {
-    if (!tripList) return;
-
-    tripList.innerHTML = "";
-
-    if (trips.length === 0) {
-        tripList.innerHTML = "<p class='empty-message'>Your adventures start here. Plan your first trip! ✈️</p>";
-        return;
+    // Safe localStorage helpers
+    function readData(key, fallback) {
+        try {
+            const saved = localStorage.getItem(key);
+            return saved ? JSON.parse(saved) : fallback;
+        } catch (error) {
+            console.warn("Could not read " + key, error);
+            return fallback;
+        }
     }
 
-    trips.forEach((trip, index) => {
-        const card = document.createElement("div");
-        card.className = "trip-card";
+    function writeData(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            showMessage("Your browser could not save this information.");
+        }
+    }
 
-        const title = document.createElement("h3");
-        title.textContent = "📍 " + trip.destination;
+    // Toast message
+    let toastTimer;
 
-        const details = document.createElement("p");
-        details.textContent =
-            `${trip.days} days · ${trip.travelers} traveller(s) · Budget ₹${trip.budget}`;
+    function showMessage(message) {
+        const toast = $("toast");
 
-        const removeButton = document.createElement("button");
-        removeButton.textContent = "Delete Trip";
-        removeButton.type = "button";
-        removeButton.addEventListener("click", () => {
-            if (confirm("Do you want to delete this trip?")) {
-                trips.splice(index, 1);
-                saveTrips();
-                displayTrips();
+        if (!toast) {
+            alert(message);
+            return;
+        }
+
+        toast.textContent = message;
+        toast.classList.add("show");
+
+        clearTimeout(toastTimer);
+
+        toastTimer = setTimeout(() => {
+            toast.classList.remove("show");
+        }, 2800);
+    }
+
+    // Main data
+    let savedTrips = readData("tripTroveTrips", []);
+    let activities = readData("tripTroveActivities", []);
+    let customPacking = readData("tripTroveCustomPacking", []);
+    let activeDay = 1;
+    let currentTrip = readData("tripTroveCurrentTrip", null);
+
+    if (!Array.isArray(savedTrips)) savedTrips = [];
+    if (!Array.isArray(activities)) activities = [];
+    if (!Array.isArray(customPacking)) customPacking = [];
+
+    function formatMoney(value) {
+        return "₹" + Number(value || 0).toLocaleString("en-IN", {
+            maximumFractionDigits: 2
+        });
+    }
+
+    // MOBILE NAVIGATION
+    const menuToggle = $("menuToggle");
+    const navLinks = $("navLinks");
+
+    if (menuToggle && navLinks) {
+        menuToggle.addEventListener("click", function () {
+            const isOpen = navLinks.classList.toggle("open");
+
+            menuToggle.setAttribute("aria-expanded", String(isOpen));
+            menuToggle.textContent = isOpen ? "✕" : "☰";
+        });
+
+        navLinks.querySelectorAll("a").forEach(link => {
+            link.addEventListener("click", function () {
+                navLinks.classList.remove("open");
+                menuToggle.setAttribute("aria-expanded", "false");
+                menuToggle.textContent = "☰";
+            });
+        });
+    }
+
+    // SMOOTH SCROLLING
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+        link.addEventListener("click", function (event) {
+            const selector = this.getAttribute("href");
+
+            if (!selector || selector === "#") return;
+
+            const target = document.querySelector(selector);
+
+            if (target) {
+                event.preventDefault();
+                target.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+            }
+        });
+    });
+
+    // TRIP PLANNER
+    const tripForm = $("tripForm");
+    const destinationInput = $("destination");
+    const startDateInput = $("startDate");
+    const durationInput = $("duration");
+    const travellersInput = $("travellers");
+
+    function getTripFromForm() {
+        return {
+            destination: destinationInput ? destinationInput.value.trim() : "",
+            startDate: startDateInput ? startDateInput.value : "",
+            days: durationInput ? Number(durationInput.value) : 1,
+            travellers: travellersInput ? Number(travellersInput.value) : 1
+        };
+    }
+
+    function updateTripOverview(trip) {
+        if (!trip) return;
+
+        if ($("overviewTitle")) {
+            $("overviewTitle").textContent =
+                trip.destination || "Your next journey";
+        }
+
+        if ($("overviewDescription")) {
+            $("overviewDescription").textContent = trip.startDate
+                ? "Your journey begins on " + trip.startDate + ". Let the adventure begin!"
+                : "Your beautiful itinerary will begin here.";
+        }
+
+        if ($("overviewDays")) {
+            $("overviewDays").textContent = (trip.days || 1) + " days";
+        }
+
+        if ($("overviewTravellers")) {
+            const people = trip.travellers || 1;
+
+            $("overviewTravellers").textContent =
+                people + (people === 1 ? " person" : " people");
+        }
+
+        updateBudget();
+    }
+
+    function fillTripForm(trip) {
+        if (!trip) return;
+
+        if (destinationInput) {
+            destinationInput.value = trip.destination || "";
+        }
+
+        if (startDateInput) {
+            startDateInput.value = trip.startDate || "";
+        }
+
+        if (durationInput) {
+            durationInput.value = trip.days || 3;
+        }
+
+        if (travellersInput) {
+            travellersInput.value = trip.travellers || 2;
+        }
+
+        currentTrip = trip;
+        writeData("tripTroveCurrentTrip", currentTrip);
+
+        updateTripOverview(trip);
+        renderDayTabs();
+        renderActivities();
+    }
+
+    if (tripForm) {
+        tripForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            const trip = getTripFromForm();
+
+            if (
+                !trip.destination ||
+                !trip.startDate ||
+                trip.days < 1 ||
+                trip.days > 60 ||
+                trip.travellers < 1 ||
+                trip.travellers > 50
+            ) {
+                showMessage("Please enter valid trip details.");
+                return;
+            }
+
+            currentTrip = trip;
+            writeData("tripTroveCurrentTrip", currentTrip);
+
+            updateTripOverview(trip);
+            renderDayTabs();
+            renderActivities();
+
+            showMessage("Your trip details are ready! 🤎");
+        });
+    }
+
+    // QUICK TRIP FORM
+    const quickTripForm = $("quickTripForm");
+
+    if (quickTripForm) {
+        quickTripForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            const quickDestination = $("quickDestination");
+            const quickDate = $("quickDate");
+            const quickDays = $("quickDays");
+
+            if (!quickDestination || !quickDate || !quickDays) return;
+
+            if (!quickDestination.value.trim() || !quickDate.value) {
+                showMessage("Please enter a destination and departure date.");
+                return;
+            }
+
+            if (destinationInput) {
+                destinationInput.value = quickDestination.value.trim();
+            }
+
+            if (startDateInput) {
+                startDateInput.value = quickDate.value;
+            }
+
+            if (durationInput) {
+                durationInput.value = quickDays.value;
+            }
+
+            if (travellersInput && !travellersInput.value) {
+                travellersInput.value = 2;
+            }
+
+            const trip = getTripFromForm();
+
+            currentTrip = trip;
+            writeData("tripTroveCurrentTrip", currentTrip);
+
+            updateTripOverview(trip);
+            renderDayTabs();
+            renderActivities();
+
+            $("planner")?.scrollIntoView({
+                behavior: "smooth"
+            });
+
+            showMessage("Trip details added to your planner!");
+        });
+    }
+
+    // DESTINATION CARD BUTTONS
+    document.querySelectorAll(".choose-destination").forEach(button => {
+        button.addEventListener("click", function () {
+            const place = this.dataset.destination;
+
+            if (destinationInput && place) {
+                destinationInput.value = place;
+
+                $("planner")?.scrollIntoView({
+                    behavior: "smooth"
+                });
+
+                destinationInput.focus();
+
+                showMessage(place + " selected. Add your travel details!");
+            }
+        });
+    });
+
+    // SAVED TRIPS
+    function renderSavedTrips() {
+        const container = $("savedTrips");
+
+        if (!container) return;
+
+        container.innerHTML = "";
+
+        if (!savedTrips.length) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span>♡</span>
+                    <p>No saved journeys yet.</p>
+                    <small>Create a trip and press Save trip to keep it here.</small>
+                </div>`;
+            return;
+        }
+
+        savedTrips.forEach((trip, index) => {
+            const card = document.createElement("article");
+            card.className = "saved-trip-card";
+
+            const label = document.createElement("span");
+            label.className = "eyebrow";
+            label.textContent = "SAVED JOURNEY";
+
+            const title = document.createElement("h3");
+            title.textContent = trip.destination;
+
+            const details = document.createElement("p");
+
+            details.textContent =
+                `${trip.days} days · ${trip.travellers} traveller(s)` +
+                (trip.startDate ? " · " + trip.startDate : "");
+
+            const actions = document.createElement("div");
+            actions.className = "saved-trip-actions";
+
+            const loadButton = document.createElement("button");
+            loadButton.type = "button";
+            loadButton.className = "secondary-button";
+            loadButton.textContent = "Open trip";
+
+            loadButton.addEventListener("click", function () {
+                fillTripForm(trip);
+
+                $("planner")?.scrollIntoView({
+                    behavior: "smooth"
+                });
+
+                showMessage("Saved trip opened.");
+            });
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "secondary-button";
+            deleteButton.textContent = "Delete";
+
+            deleteButton.addEventListener("click", function () {
+                if (confirm("Delete this saved trip?")) {
+                    savedTrips.splice(index, 1);
+
+                    writeData("tripTroveTrips", savedTrips);
+                    renderSavedTrips();
+
+                    showMessage("Saved trip deleted.");
+                }
+            });
+
+            actions.append(loadButton, deleteButton);
+            card.append(label, title, details, actions);
+
+            container.appendChild(card);
+        });
+    }
+
+    // SAVE TRIP BUTTON
+    const saveTripButton = $("saveTrip");
+
+    if (saveTripButton) {
+        saveTripButton.addEventListener("click", function () {
+            const trip = getTripFromForm();
+
+            if (
+                !trip.destination ||
+                !trip.startDate ||
+                trip.days < 1 ||
+                trip.travellers < 1
+            ) {
+                showMessage("Please create your trip first.");
+
+                $("planner")?.scrollIntoView({
+                    behavior: "smooth"
+                });
+
+                return;
+            }
+
+            trip.id = Date.now();
+            trip.savedAt = new Date().toISOString();
+            trip.budget = calculateBudgetTotal();
+            trip.activities = activities.map(item => ({ ...item }));
+
+            savedTrips.unshift(trip);
+
+            writeData("tripTroveTrips", savedTrips);
+            renderSavedTrips();
+
+            showMessage("Your trip has been saved! 🤎");
+        });
+    }
+
+    // NEW TRIP BUTTON
+    const newTripButton = $("newTrip");
+
+    if (newTripButton) {
+        newTripButton.addEventListener("click", function () {
+            if (tripForm) tripForm.reset();
+
+            if (durationInput) durationInput.value = 3;
+            if (travellersInput) travellersInput.value = 2;
+
+            currentTrip = null;
+
+            writeData("tripTroveCurrentTrip", null);
+
+            activeDay = 1;
+
+            renderDayTabs();
+            renderActivities();
+
+            updateTripOverview({
+                destination: "",
+                startDate: "",
+                days: 3,
+                travellers: 2
+            });
+
+            showMessage("Ready to plan a new journey!");
+        });
+    }
+
+    // ITINERARY
+    const activityForm = $("activityForm");
+    const activityList = $("activityList");
+
+    function getTripDays() {
+        const days = Number(
+            durationInput?.value || currentTrip?.days || 3
+        );
+
+        return Math.min(60, Math.max(1, days));
+    }
+
+    function renderDayTabs() {
+        const tabs = $("dayTabs");
+
+        if (!tabs) return;
+
+        const totalDays = getTripDays();
+
+        if (activeDay > totalDays) {
+            activeDay = totalDays;
+        }
+
+        tabs.innerHTML = "";
+
+        for (let day = 1; day <= totalDays; day++) {
+            const button = document.createElement("button");
+
+            button.type = "button";
+            button.className =
+                "day-tab" + (day === activeDay ? " active" : "");
+
+            button.dataset.day = String(day);
+            button.textContent = "Day " + day;
+
+            button.addEventListener("click", function () {
+                activeDay = day;
+
+                renderDayTabs();
+                renderActivities();
+            });
+
+            tabs.appendChild(button);
+        }
+    }
+
+    function renderActivities() {
+        if (!activityList) return;
+
+        activityList.innerHTML = "";
+
+        const dayActivities = activities
+            .filter(item => item.day === activeDay)
+            .sort((a, b) =>
+                (a.time || "").localeCompare(b.time || "")
+            );
+
+        if (!dayActivities.length) {
+            activityList.innerHTML = `
+                <div class="empty-state">
+                    <span>✳</span>
+                    <p>Your adventure is a blank page.</p>
+                    <small>Add your first activity to begin.</small>
+                </div>`;
+        } else {
+            dayActivities.forEach(item => {
+                const row = document.createElement("div");
+                row.className = "activity-item";
+
+                const time = document.createElement("span");
+                time.className = "activity-time";
+                time.textContent = item.time || "Any time";
+
+                const details = document.createElement("div");
+                details.className = "activity-details";
+
+                const name = document.createElement("strong");
+                name.textContent = item.name;
+
+                const cost = document.createElement("small");
+                cost.textContent =
+                    "Estimated cost: " + formatMoney(item.cost);
+
+                details.append(name, cost);
+
+                const remove = document.createElement("button");
+                remove.type = "button";
+                remove.className = "delete-activity";
+                remove.textContent = "Remove";
+
+                remove.addEventListener("click", function () {
+                    activities = activities.filter(
+                        activity => activity.id !== item.id
+                    );
+
+                    writeData("tripTroveActivities", activities);
+
+                    renderActivities();
+                    updateBudget();
+
+                    showMessage("Activity removed.");
+                });
+
+                row.append(time, details, remove);
+                activityList.appendChild(row);
+            });
+        }
+
+        const counter = $("activityCounter");
+
+        if (counter) {
+            const count = activities.length;
+
+            counter.textContent =
+                count + (count === 1 ? " activity" : " activities");
+        }
+    }
+
+    if (activityForm) {
+        activityForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            const name = $("activityName")?.value.trim();
+            const time = $("activityTime")?.value;
+            const cost = Number($("activityCost")?.value || 0);
+
+            if (!name || !time || cost < 0) {
+                showMessage("Please enter valid activity details.");
+                return;
+            }
+
+            activities.push({
+                id: Date.now(),
+                day: activeDay,
+                name: name,
+                time: time,
+                cost: cost
+            });
+
+            writeData("tripTroveActivities", activities);
+
+            activityForm.reset();
+
+            if ($("activityTime")) {
+                $("activityTime").value = "10:00";
+            }
+
+            if ($("activityCost")) {
+                $("activityCost").value = 0;
+            }
+
+            renderActivities();
+            updateBudget();
+
+            showMessage("Activity added to Day " + activeDay + "!");
+        });
+    }
+    // BUDGET CALCULATOR
+    const budgetInputIds = [
+        "transportCost",
+        "hotelCost",
+        "foodCost",
+        "activityBudget",
+        "shoppingCost"
+    ];
+
+    function calculateBudgetTotal() {
+        return budgetInputIds.reduce((sum, id) => {
+            const input = $(id);
+
+            return sum + Math.max(
+                0,
+                Number(input?.value || 0)
+            );
+        }, 0);
+    }
+
+    function updateBudget() {
+        const total = calculateBudgetTotal();
+
+        const travellers = Math.max(
+            1,
+            Number(travellersInput?.value || 1)
+        );
+
+        const limit = Math.max(
+            0,
+            Number($("budgetLimit")?.value || 0)
+        );
+
+        const remaining = limit - total;
+
+        const percentage = limit > 0
+            ? Math.round((total / limit) * 100)
+            : 0;
+
+        if ($("totalBudget")) {
+            $("totalBudget").textContent = formatMoney(total);
+        }
+
+        if ($("perPerson")) {
+            $("perPerson").textContent =
+                formatMoney(total / travellers);
+        }
+
+        if ($("budgetUsed")) {
+            $("budgetUsed").textContent =
+                percentage + "% of budget";
+        }
+
+        if ($("budgetRemaining")) {
+            $("budgetRemaining").textContent =
+                remaining >= 0
+                    ? formatMoney(remaining) + " left"
+                    : formatMoney(Math.abs(remaining)) + " over budget";
+        }
+
+        if ($("budgetProgress")) {
+            $("budgetProgress").style.width =
+                Math.min(100, Math.max(0, percentage)) + "%";
+        }
+
+        if ($("budgetMessage")) {
+            if (limit === 0) {
+                $("budgetMessage").textContent =
+                    "Set a maximum budget to track your expenses.";
+            } else if (total > limit) {
+                $("budgetMessage").textContent =
+                    "Your expenses are above your planned budget.";
+            } else if (total === limit) {
+                $("budgetMessage").textContent =
+                    "You have used your full budget.";
+            } else {
+                $("budgetMessage").textContent =
+                    "Looking good! You have room for your adventures.";
+            }
+        }
+
+        if ($("overviewBudget")) {
+            $("overviewBudget").textContent = formatMoney(total);
+        }
+
+        return total;
+    }
+
+    budgetInputIds.concat(["budgetLimit", "travellers"]).forEach(id => {
+        $(id)?.addEventListener("input", updateBudget);
+        $(id)?.addEventListener("change", updateBudget);
+    });
+
+    // RESET BUDGET
+    $("resetBudget")?.addEventListener("click", function () {
+        const defaults = {
+            transportCost: 2000,
+            hotelCost: 3000,
+            foodCost: 1500,
+            activityBudget: 1000,
+            shoppingCost: 500,
+            budgetLimit: 10000
+        };
+
+        Object.keys(defaults).forEach(id => {
+            if ($(id)) {
+                $(id).value = defaults[id];
             }
         });
 
-        card.append(title, details, removeButton);
-        tripList.appendChild(card);
+        updateBudget();
+
+        showMessage("Budget has been reset.");
     });
-}
 
-if (tripForm) {
-    tripForm.addEventListener("submit", function (event) {
-        event.preventDefault();
+    // PACKING CHECKLIST
+    const packingList = $("packingList");
 
-        const destination = document.getElementById("destination").value.trim();
-        const days = Number(document.getElementById("days").value);
-        const travelers = Number(document.getElementById("travelers").value);
-        const budget = Number(document.getElementById("tripBudget").value);
+    const defaultPackingLabels = packingList
+        ? Array.from(
+            packingList.querySelectorAll(".packing-item")
+        )
+        : [];
 
-        if (!destination || days < 1 || travelers < 1 || budget < 0) {
-            showMessage("Please enter valid trip details.");
-            return;
+    function updatePackingProgress() {
+        const checkboxes = packingList
+            ? Array.from(
+                packingList.querySelectorAll(
+                    'input[type="checkbox"]'
+                )
+            )
+            : [];
+
+        const checked = checkboxes.filter(
+            box => box.checked
+        ).length;
+
+        const progress = $("packingProgress");
+
+        if (progress) {
+            progress.textContent =
+                `${checked} of ${checkboxes.length} packed`;
         }
+    }
 
-        trips.push({ destination, days, travelers, budget });
-        saveTrips();
-        displayTrips();
-        tripForm.reset();
+    // RESTORE SAVED PACKING ITEMS
+    const savedDefaultPacking = readData(
+        "tripTroveDefaultPacking",
+        []
+    );
 
-        showMessage("Your trip has been saved! 🤎");
-    });
-}
-
-// Budget calculator
-if (budgetForm) {
-    budgetForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        const transport = Number(document.getElementById("transport").value) || 0;
-        const hotel = Number(document.getElementById("hotel").value) || 0;
-        const food = Number(document.getElementById("food").value) || 0;
-        const activities = Number(document.getElementById("activities").value) || 0;
-        const travelers = Math.max(
-            1,
-            Number(document.getElementById("budgetTravelers").value) || 1
+    defaultPackingLabels.forEach((label, index) => {
+        const checkbox = label.querySelector(
+            'input[type="checkbox"]'
         );
 
-        const total = transport + hotel + food + activities;
-        const perPerson = total / travelers;
+        if (!checkbox) return;
 
-        document.getElementById("totalBudget").textContent =
-            "₹" + total.toLocaleString("en-IN");
+        checkbox.checked = Boolean(
+            savedDefaultPacking[index]
+        );
 
-        document.getElementById("perPerson").textContent =
-            "₹" + perPerson.toLocaleString("en-IN", {
-                maximumFractionDigits: 2
+        checkbox.addEventListener("change", function () {
+            const states = defaultPackingLabels.map(item => {
+                return Boolean(
+                    item.querySelector(
+                        'input[type="checkbox"]'
+                    )?.checked
+                );
             });
 
-        const result = document.getElementById("budgetResult");
-        if (result) result.hidden = false;
+            writeData("tripTroveDefaultPacking", states);
+
+            updatePackingProgress();
+        });
     });
-}
 
-// Packing checklist
-function displayPacking() {
-    const packingList = document.getElementById("packingList");
-    if (!packingList) return;
+    // CUSTOM PACKING ITEMS
+    function renderCustomPacking() {
+        if (!packingList) return;
 
-    packingList.innerHTML = "";
+        packingList.querySelectorAll(
+            ".custom-packing-item"
+        ).forEach(item => item.remove());
 
-    packingItems.forEach((item, index) => {
-        const li = document.createElement("li");
+        customPacking.forEach((item, index) => {
+            const label = document.createElement("label");
 
-        const label = document.createElement("label");
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.checked = item.done;
+            label.className =
+                "packing-item custom-packing-item";
 
-        checkbox.addEventListener("change", () => {
-            packingItems[index].done = checkbox.checked;
-            savePacking();
-            displayPacking();
+            const checkbox = document.createElement("input");
+
+            checkbox.type = "checkbox";
+            checkbox.className = "packing-checkbox";
+            checkbox.checked = Boolean(item.done);
+
+            checkbox.addEventListener("change", function () {
+                customPacking[index].done = checkbox.checked;
+
+                writeData(
+                    "tripTroveCustomPacking",
+                    customPacking
+                );
+
+                updatePackingProgress();
+            });
+
+            const text = document.createElement("span");
+            text.textContent = item.name;
+
+            const category = document.createElement("small");
+            category.textContent = "CUSTOM";
+
+            label.append(checkbox, text, category);
+
+            packingList.appendChild(label);
         });
 
-        const text = document.createElement("span");
-        text.textContent = item.name;
+        updatePackingProgress();
+    }
 
-        if (item.done) text.className = "packed";
+    // ADD CUSTOM PACKING ITEM
+    const customPackingForm = $("customPackingForm");
 
-        const removeButton = document.createElement("button");
-        removeButton.type = "button";
-        removeButton.textContent = "×";
-        removeButton.setAttribute("aria-label", "Remove " + item.name);
+    if (customPackingForm) {
+        customPackingForm.addEventListener(
+            "submit",
+            function (event) {
+                event.preventDefault();
 
-        removeButton.addEventListener("click", () => {
-            packingItems.splice(index, 1);
-            savePacking();
-            displayPacking();
+                const input = $("customPackingItem");
+                const name = input?.value.trim();
+
+                if (!name) return;
+
+                customPacking.push({
+                    name: name,
+                    done: false
+                });
+
+                writeData(
+                    "tripTroveCustomPacking",
+                    customPacking
+                );
+
+                renderCustomPacking();
+
+                input.value = "";
+
+                showMessage("Packing item added.");
+            }
+        );
+    }
+
+    // CLEAR PACKING CHECKLIST
+    $("clearPacking")?.addEventListener("click", function () {
+        defaultPackingLabels.forEach(label => {
+            const checkbox = label.querySelector(
+                'input[type="checkbox"]'
+            );
+
+            if (checkbox) {
+                checkbox.checked = false;
+            }
         });
 
-        label.append(checkbox, text);
-        li.append(label, removeButton);
-        packingList.appendChild(li);
-    });
-}
-
-if (packingForm) {
-    packingForm.addEventListener("submit", function (event) {
-        event.preventDefault();
-
-        const input = document.getElementById("packingItem");
-        const name = input.value.trim();
-
-        if (!name) return;
-
-        packingItems.push({ name, done: false });
-        savePacking();
-        displayPacking();
-        input.value = "";
-    });
-}
-
-// Itinerary planner
-const itineraryForm = document.getElementById("itineraryForm");
-const itineraryList = document.getElementById("itineraryList");
-
-let itinerary = JSON.parse(localStorage.getItem("tripTroveItinerary")) || [];
-
-function displayItinerary() {
-    if (!itineraryList) return;
-
-    itineraryList.innerHTML = "";
-
-    itinerary.forEach((item, index) => {
-        const card = document.createElement("div");
-        card.className = "itinerary-card";
-
-        const heading = document.createElement("h3");
-        heading.textContent = `Day ${item.day}: ${item.place}`;
-
-        const activity = document.createElement("p");
-        activity.textContent = item.activity;
-
-        const remove = document.createElement("button");
-        remove.type = "button";
-        remove.textContent = "Remove";
-        remove.addEventListener("click", () => {
-            itinerary.splice(index, 1);
-            localStorage.setItem("tripTroveItinerary", JSON.stringify(itinerary));
-            displayItinerary();
+        customPacking.forEach(item => {
+            item.done = false;
         });
 
-        card.append(heading, activity, remove);
-        itineraryList.appendChild(card);
+        writeData(
+            "tripTroveDefaultPacking",
+            defaultPackingLabels.map(() => false)
+        );
+
+        writeData(
+            "tripTroveCustomPacking",
+            customPacking
+        );
+
+        renderCustomPacking();
+        updatePackingProgress();
+
+        showMessage("Packing checklist unchecked.");
     });
-}
 
-if (itineraryForm) {
-    itineraryForm.addEventListener("submit", function (event) {
-        event.preventDefault();
+    // FOOTER YEAR
+    if ($("currentYear")) {
+        $("currentYear").textContent =
+            new Date().getFullYear();
+    }
 
-        const day = Number(document.getElementById("itineraryDay").value);
-        const place = document.getElementById("itineraryPlace").value.trim();
-        const activity = document.getElementById("itineraryActivity").value.trim();
+    // INITIAL PAGE LOAD
+    if (currentTrip) {
+        fillTripForm(currentTrip);
+    } else {
+        updateTripOverview({
+            destination: "",
+            startDate: "",
+            days: 3,
+            travellers: 2
+        });
+    }
 
-        if (day < 1 || !place || !activity) {
-            showMessage("Please fill in all itinerary details.");
-            return;
-        }
+    renderDayTabs();
+    renderActivities();
+    renderSavedTrips();
+    renderCustomPacking();
+    updatePackingProgress();
+    updateBudget();
 
-        itinerary.push({ day, place, activity });
-        itinerary.sort((a, b) => a.day - b.day);
+    // SET MINIMUM DATE TO TODAY
+    const today = new Date();
 
-        localStorage.setItem("tripTroveItinerary", JSON.stringify(itinerary));
-        displayItinerary();
-        itineraryForm.reset();
-    });
-}
+    const localToday = new Date(
+        today.getTime() -
+        today.getTimezoneOffset() * 60000
+    ).toISOString().split("T")[0];
 
-// Smooth navigation
-document.querySelectorAll('a[href^="#"]').forEach(link => {
-    link.addEventListener("click", function (event) {
-        const target = document.querySelector(this.getAttribute("href"));
+    if (startDateInput) {
+        startDateInput.min = localToday;
+    }
 
-        if (target) {
-            event.preventDefault();
-            target.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-    });
+    if ($("quickDate")) {
+        $("quickDate").min = localToday;
+    }
+
 });
-
-// Initial display
-displayTrips();
-displayPacking();
-displayItinerary();
